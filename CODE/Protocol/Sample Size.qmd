@@ -1,0 +1,136 @@
+---
+title: "Cálculo del tamaño de muestra"
+subtitle: "Ensayo clinico aleatorizado: DD+"
+author: "David Niño-Torres"
+lang: es
+
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-title: "Contenido"
+    toc-depth: 3
+    number-sections: true
+    theme: flatly
+    highlight-style: tango
+    code-fold: false
+    embed-resources: true
+    fig-align: center
+
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Parámetros del estudio
+
+| Parámetro | Símbolo | Valor |
+|---|:---:|:---:|
+| Nivel de significancia (bilateral) | $\alpha$ | 0.05 |
+| Potencia estadística | $1-\beta$ | 0.90 |
+| Diferencia mínima clínicamente importante (MCID) | $\delta$ | 0.4 puntos |
+| Desviación estándar de la escala MANSA | $\sigma$ | 0.9 |
+| Correlación entre línea base y seguimiento | $r$ | 0.4 |
+| Pérdida esperada al seguimiento | — | 20 % |
+
+## Derivación matemática
+
+### Paso 1 — Ajuste de la varianza por ANCOVA
+
+El análisis de covarianza (ANCOVA) reduce la varianza residual al controlar por la medición basal. La varianza ajustada es:
+
+$$\sigma^2_{\text{adj}} = \sigma^2(1 - r^2)$$
+
+y, por lo tanto, la desviación estándar ajustada es:
+
+$$\sigma_{\text{adj}} = \sigma\sqrt{1 - r^2}$$
+
+Sustituyendo los valores:
+
+$$\sigma_{\text{adj}} = 0.9 \times \sqrt{1 - 0.4^2} = 0.9 \times \sqrt{0.84} = 0.9 \times 0.9165 \approx 0.8249$$
+
+### Paso 2 — Tamaño del efecto estandarizado
+
+El tamaño del efecto se define como la diferencia mínima clínicamente importante dividida por la desviación estándar ajustada:
+
+$$d_{\text{adj}} = \frac{\delta}{\sigma_{\text{adj}}} = \frac{0.4}{0.8249} \approx 0.4849$$
+
+### Paso 3 — Tamaño de muestra por grupo (prueba *t* bilateral)
+
+Para una prueba *t* de dos muestras independientes, con la aproximación normal:
+
+$$n = \frac{2\,(z_{\alpha/2} + z_\beta)^2}{d^2_{\text{adj}}}$$
+
+donde:
+
+- $z_{\alpha/2} = z_{0.025} = 1.96$ (valor crítico bilateral al 5 %)
+- $z_{\beta} = z_{0.10} = 1.2816$ (potencia del 90 %)
+
+Sustituyendo:
+
+$$n = \frac{2\,(1.96 + 1.2816)^2}{(0.4849)^2} = \frac{2 \times 10.508}{0.2351} \approx \frac{21.016}{0.2351} \approx 89.4 \approx 90$$
+
+### Paso 4 — Ajuste por pérdida al seguimiento
+
+Con $n = 90$ participantes por grupo, el total sin pérdida es:
+
+$$N_{\text{raw}} = 90 \times 2 = 180$$
+
+Para compensar una pérdida del 20 %:
+
+$$N_{\text{adj}} = \left\lceil \frac{N_{\text{raw}}}{1 - 0.20} \right\rceil = \left\lceil \frac{180}{0.80} \right\rceil = \lceil 225 \rceil = 225$$
+
+$$n_{\text{por grupo}} = \left\lceil \frac{N_{\text{adj}}}{2} \right\rceil = \left\lceil \frac{225}{2} \right\rceil = 113$$
+
+**Resultado final: 113 participantes por grupo (226 en total).**
+
+## Código R
+
+```{r}
+#| label: Ensayo
+
+# install.packages("pwr")   # ejecutar una sola vez si no está instalado
+library(pwr)
+
+# -----------------------------------------
+# Ensayo aleatorizado - Colombia
+# -----------------------------------------
+
+alpha  <- 0.05   # Nivel de significancia (bilateral)
+potencia <- 0.90 # Potencia estadística
+delta  <- 0.4    # Diferencia mínima clínicamente importante (MCID)
+sigma  <- 0.9    # Desviación estándar de la escala MANSA
+rho    <- 0.4    # Correlación entre línea base y seguimiento
+perdida <- 0.20  # Pérdida esperada al seguimiento
+
+# Paso 1: desviación estándar ajustada por ANCOVA
+sigma_adj <- sigma * sqrt(1 - rho^2)
+cat("σ ajustada (ANCOVA):", round(sigma_adj, 4), "\n")
+
+# Paso 2: tamaño del efecto ajustado
+d_adj <- delta / sigma_adj
+cat("d ajustado:", round(d_adj, 4), "\n")
+
+# Paso 3: tamaño de muestra por grupo (prueba t bilateral, sin pérdida)
+resultado <- pwr.t.test(d = d_adj, power = potencia, sig.level = alpha,
+                        type = "two.sample", alternative = "two.sided")
+n_grupo <- round(resultado$n)   # se redondea por grupo antes de continuar
+cat("n por grupo (sin pérdida):", n_grupo, "\n")
+
+# Paso 4: total sin pérdida
+n_total_raw <- n_grupo * 2
+cat("Total sin pérdida:", n_total_raw, "\n")
+
+# Paso 5: ajuste por pérdida
+n_total_adj <- ceiling(n_total_raw / (1 - perdida))
+n_por_grupo_final <- ceiling(n_total_adj / 2)
+
+cat("\n--- RESULTADOS FINALES: ENSAYO ALEATORIZADO ---\n")
+cat("Tamaño de muestra por grupo (ajustado por", perdida * 100, "% de pérdida):",
+    n_por_grupo_final, "\n")
+cat("Tamaño total de muestra:", n_por_grupo_final * 2, "\n")
+```
+
+
+
